@@ -23,11 +23,20 @@ public class AppConstants {
     public static final String KEY_BLE_DEVICE_NAME_PREFIX = "ble_device_name_prefix";
     public static final String KEY_DEVICE_NAME = "device_name";
     public static final String KEY_STATUS_MSG = "status_msg";
+
+    public static final String PREFERENCES_DEVICE_TRANSPORT_KEY = "device_types";
+    public static final String PREFERENCES_SECURITY_TYPE = "security_type";
+    public static final String KEY_USER_NAME = "sec2_username";
+    // Configuration option keys used to pass data in intents.
     public static final String KEY_WIFI_SSID = "ssid";
     public static final String KEY_WIFI_PASSWORD = "password";
-    public static final String KEY_DEVICE_TYPES = "device_types";
-    public static final String KEY_SECURITY_TYPE = "security_type";
-    public static final String KEY_USER_NAME = "sec2_username";
+    public static final String KEY_OPENWEATHER_API_KEY = "openweather_api_key";
+    public static final String KEY_LOCATION_LAITUDE = "latitude";
+    public static final String KEY_LOCATION_LONGITUDE = "longitude";
+    public static final String KEY_LOCATION_ZIPCODE = "latitude";
+    public static final String KEY_LOCATION_COUNTRY_CODE = "latitude";
+    public static final String KEY_LOCATION_LANGUAGE = "latitude";
+    public static final String KEY_LOCATION_UNIT_SYSTEM = "latitude";
 
     public static final String ESP_PREFERENCES = "Esp_Preferences";
 
@@ -41,4 +50,6 @@ public class AppConstants {
     public static final int SEC_TYPE_2 = 2;
     public static final int SEC_TYPE_DEFAULT = SEC_TYPE_2;
     public static final String DEFAULT_USER_NAME = "wifiprov";
+
+    public static final String CUSTOM_CONFIG_ENDPOINT = "config";
 }

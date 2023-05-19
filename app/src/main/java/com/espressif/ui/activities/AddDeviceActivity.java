@@ -268,7 +268,7 @@ public class AddDeviceActivity extends AppCompatActivity {
         @Override
         public void onClick(View v) {
 
-            String deviceType = sharedPreferences.getString(AppConstants.KEY_DEVICE_TYPES, AppConstants.DEVICE_TYPE_DEFAULT);
+            String deviceType = sharedPreferences.getString(AppConstants.PREFERENCES_DEVICE_TRANSPORT_KEY, AppConstants.DEVICE_TYPE_DEFAULT);
 
             if (deviceType.equals(AppConstants.DEVICE_TYPE_BLE) || deviceType.equals(AppConstants.DEVICE_TYPE_BOTH)) {
 
@@ -440,7 +440,7 @@ public class AddDeviceActivity extends AppCompatActivity {
 
             Log.d(TAG, "Device detected");
             espDevice = device;
-            final String deviceType = sharedPreferences.getString(AppConstants.KEY_DEVICE_TYPES, AppConstants.DEVICE_TYPE_DEFAULT);
+            final String deviceType = sharedPreferences.getString(AppConstants.PREFERENCES_DEVICE_TRANSPORT_KEY, AppConstants.DEVICE_TYPE_DEFAULT);
 
             runOnUiThread(new Runnable() {
 
@@ -628,8 +628,8 @@ public class AddDeviceActivity extends AppCompatActivity {
 
     private void startProvisioningFlow() {
 
-        String deviceType = sharedPreferences.getString(AppConstants.KEY_DEVICE_TYPES, AppConstants.DEVICE_TYPE_DEFAULT);
-        final boolean isSecure = sharedPreferences.getBoolean(AppConstants.KEY_SECURITY_TYPE, true);
+        String deviceType = sharedPreferences.getString(AppConstants.PREFERENCES_DEVICE_TRANSPORT_KEY, AppConstants.DEVICE_TYPE_DEFAULT);
+        final boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE, true);
         Log.d(TAG, "Device Types : " + deviceType);
         int securityType = AppConstants.SEC_TYPE_0;
         if (isSecure) {
@@ -698,7 +698,7 @@ public class AddDeviceActivity extends AppCompatActivity {
 
     private void setSecurityTypeFromVersionInfo() {
 
-        boolean isSecure = sharedPreferences.getBoolean(AppConstants.KEY_SECURITY_TYPE, true);
+        boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE, true);
         String protoVerStr = provisionManager.getEspDevice().getVersionInfo();
         int securityType = AppConstants.SEC_TYPE_2;
 
@@ -765,7 +765,7 @@ public class AddDeviceActivity extends AppCompatActivity {
 
         finish();
         Intent bleProvisioningIntent = new Intent(AddDeviceActivity.this, BLEProvisionLanding.class);
-        bleProvisioningIntent.putExtra(AppConstants.KEY_SECURITY_TYPE, securityType);
+        bleProvisioningIntent.putExtra(AppConstants.PREFERENCES_SECURITY_TYPE, securityType);
         startActivity(bleProvisioningIntent);
     }
 
@@ -773,7 +773,7 @@ public class AddDeviceActivity extends AppCompatActivity {
 
         finish();
         Intent wifiProvisioningIntent = new Intent(getApplicationContext(), ProvisionLanding.class);
-        wifiProvisioningIntent.putExtra(AppConstants.KEY_SECURITY_TYPE, securityType);
+        wifiProvisioningIntent.putExtra(AppConstants.PREFERENCES_SECURITY_TYPE, securityType);
 
         if (espDevice != null) {
             wifiProvisioningIntent.putExtra(AppConstants.KEY_DEVICE_NAME, espDevice.getDeviceName());

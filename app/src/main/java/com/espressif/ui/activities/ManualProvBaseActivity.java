@@ -43,7 +43,7 @@ public class ManualProvBaseActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_provision_landing);
-        securityType = getIntent().getIntExtra(AppConstants.KEY_SECURITY_TYPE, AppConstants.SEC_TYPE_DEFAULT);
+        securityType = getIntent().getIntExtra(AppConstants.PREFERENCES_SECURITY_TYPE, AppConstants.SEC_TYPE_DEFAULT);
         provisionManager = ESPProvisionManager.getInstance(getApplicationContext());
         sharedPreferences = getSharedPreferences(AppConstants.ESP_PREFERENCES, Context.MODE_PRIVATE);
         EventBus.getDefault().register(this);

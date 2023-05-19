@@ -29,6 +29,7 @@ import androidx.core.widget.ContentLoadingProgressBar;
 
 import com.espressif.AppConstants;
 import com.espressif.provisioning.DeviceConnectionEvent;
+import com.espressif.provisioning.listeners.ResponseListener;
 import com.espressif.wifi_provisioning.R;
 import com.espressif.provisioning.ESPConstants;
 import com.espressif.provisioning.ESPProvisionManager;
@@ -38,19 +39,22 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
 
+import java.nio.charset.StandardCharsets;
+
 public class ProvisionActivity extends AppCompatActivity {
 
     private static final String TAG = ProvisionActivity.class.getSimpleName();
 
     private TextView tvTitle, tvBack, tvCancel;
-    private ImageView tick1, tick2, tick3;
-    private ContentLoadingProgressBar progress1, progress2, progress3;
-    private TextView tvErrAtStep1, tvErrAtStep2, tvErrAtStep3, tvProvError;
+    private ImageView tick1, tick2, tick3, tick4;
+    private ContentLoadingProgressBar progress1, progress2, progress3, progress4;
+    private TextView tvErrAtStep1, tvErrAtStep2, tvErrAtStep3, tvProvError, tvErrAtStep4;
 
     private CardView btnOk;
     private TextView txtOkBtn;
 
     private String ssidValue, passphraseValue = "";
+    private String openWeatherApiKey = "";
     private ESPProvisionManager provisionManager;
     private boolean isProvisioningCompleted = false;
 
@@ -63,13 +67,14 @@ public class ProvisionActivity extends AppCompatActivity {
         Intent intent = getIntent();
         ssidValue = intent.getStringExtra(AppConstants.KEY_WIFI_SSID);
         passphraseValue = intent.getStringExtra(AppConstants.KEY_WIFI_PASSWORD);
+        openWeatherApiKey = intent.getStringExtra(AppConstants.KEY_OPENWEATHER_API_KEY);
         provisionManager = ESPProvisionManager.getInstance(getApplicationContext());
         initViews();
         EventBus.getDefault().register(this);
 
         Log.d(TAG, "Selected AP -" + ssidValue);
         showLoading();
-        doProvisioning();
+        provisionConfiguration();
     }
 
     @Override
@@ -117,14 +122,17 @@ public class ProvisionActivity extends AppCompatActivity {
         tick1 = findViewById(R.id.iv_tick_1);
         tick2 = findViewById(R.id.iv_tick_2);
         tick3 = findViewById(R.id.iv_tick_3);
+        tick4 = findViewById(R.id.iv_tick_4);
 
         progress1 = findViewById(R.id.prov_progress_1);
         progress2 = findViewById(R.id.prov_progress_2);
         progress3 = findViewById(R.id.prov_progress_3);
+        progress4 = findViewById(R.id.prov_progress_4);
 
         tvErrAtStep1 = findViewById(R.id.tv_prov_error_1);
         tvErrAtStep2 = findViewById(R.id.tv_prov_error_2);
         tvErrAtStep3 = findViewById(R.id.tv_prov_error_3);
+        tvErrAtStep4 = findViewById(R.id.tv_prov_error_4);
         tvProvError = findViewById(R.id.tv_prov_error);
 
         tvTitle.setText(R.string.title_activity_provisioning);
@@ -139,10 +147,50 @@ public class ProvisionActivity extends AppCompatActivity {
         btnOk.setOnClickListener(okBtnClickListener);
     }
 
-    private void doProvisioning() {
+    private void provisionConfiguration() {
+        tick4.setVisibility(View.GONE);
+        progress4.setVisibility(View.VISIBLE);
 
-        tick1.setVisibility(View.GONE);
-        progress1.setVisibility(View.VISIBLE);
+        provisionManager.getEspDevice().sendDataToCustomEndPoint(
+                AppConstants.CUSTOM_CONFIG_ENDPOINT,
+                openWeatherApiKey.getBytes(StandardCharsets.UTF_8),
+                new ResponseListener() {
+
+                    @Override
+                    public void onSuccess(byte[] returnData) {
+                        Log.e(TAG, "Configuration provisioning success, response: " + new String(returnData, StandardCharsets.UTF_8));
+                        tick4.setImageResource(R.drawable.ic_checkbox_on);
+                        tick4.setVisibility(View.VISIBLE);
+                        progress4.setVisibility(View.GONE);
+                        tick1.setVisibility(View.GONE);
+                        progress1.setVisibility(View.VISIBLE);
+                        doProvisioning();
+                    }
+
+                    @Override
+                    public void onFailure(Exception e) {
+
+                        Log.w(TAG, "Configuration provisioning failure, exception" + e.getMessage());
+
+                        runOnUiThread(new Runnable() {
+
+                            @Override
+                            public void run() {
+                                tick4.setImageResource(R.drawable.ic_error);
+                                tick4.setVisibility(View.VISIBLE);
+                                progress4.setVisibility(View.GONE);
+                                tvErrAtStep4.setVisibility(View.VISIBLE);
+                                tvErrAtStep4.setText(R.string.error_prov_step_4);
+                                tvProvError.setVisibility(View.VISIBLE);
+                                hideLoading();
+                            }
+                        });
+                    }
+                }
+        );
+    }
+
+    private void doProvisioning() {
 
         provisionManager.getEspDevice().provision(ssidValue, passphraseValue, new ProvisionListener() {
 

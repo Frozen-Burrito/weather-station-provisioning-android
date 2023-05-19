@@ -212,7 +212,7 @@ public class BLEProvisionLanding extends ManualProvBaseActivity {
                 isConnecting = false;
                 isDeviceConnected = true;
                 setSecurityTypeFromVersionInfo();
-                boolean isSecure = sharedPreferences.getBoolean(AppConstants.KEY_SECURITY_TYPE, true);
+                boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE, true);
                 if (isSecure) {
                     if (securityType == AppConstants.SEC_TYPE_0) {
                         Utils.displayDeviceConnectionError(this, getString(R.string.error_security_mismatch));

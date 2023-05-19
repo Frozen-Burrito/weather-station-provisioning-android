@@ -102,7 +102,8 @@ public class WiFiScanActivity extends AppCompatActivity {
                 if (ssid.equals(getString(R.string.join_other_network))) {
                     askForNetwork(wifiAPList.get(pos).getWifiName(), wifiAPList.get(pos).getSecurity());
                 } else if (wifiAPList.get(pos).getSecurity() == ESPConstants.WIFI_OPEN) {
-                    goForProvisioning(wifiAPList.get(pos).getWifiName(), "");
+                    //TODO: find a way to specify the API key.
+                    goForProvisioning(wifiAPList.get(pos).getWifiName(), "", "");
                 } else {
                     askForNetwork(wifiAPList.get(pos).getWifiName(), wifiAPList.get(pos).getSecurity());
                 }
@@ -210,6 +211,7 @@ public class WiFiScanActivity extends AppCompatActivity {
         final View dialogView = inflater.inflate(R.layout.dialog_wifi_network, null);
         final EditText etSsid = dialogView.findViewById(R.id.et_ssid);
         final EditText etPassword = dialogView.findViewById(R.id.et_password);
+        final EditText etOpenWeatherApiKey = dialogView.findViewById(R.id.et_apikey);
 
         String title = getString(R.string.join_other_network);
         if (!ssid.equals(title)) {
@@ -233,6 +235,7 @@ public class WiFiScanActivity extends AppCompatActivity {
                     @Override
                     public void onClick(View view) {
                         String password = etPassword.getText().toString();
+                        String apikey = etOpenWeatherApiKey.getText().toString();
 
                         if (ssid.equals(getString(R.string.join_other_network))) {
 
@@ -243,7 +246,7 @@ public class WiFiScanActivity extends AppCompatActivity {
 
                             } else {
                                 dialog.dismiss();
-                                goForProvisioning(networkName, password);
+                                goForProvisioning(networkName, password, apikey);
                             }
 
                         } else {
@@ -256,7 +259,7 @@ public class WiFiScanActivity extends AppCompatActivity {
 
                                 } else {
                                     dialog.dismiss();
-                                    goForProvisioning(ssid, password);
+                                    goForProvisioning(ssid, password, apikey);
                                 }
 
                             } else {
@@ -265,7 +268,7 @@ public class WiFiScanActivity extends AppCompatActivity {
                                     password = "";
                                 }
                                 dialog.dismiss();
-                                goForProvisioning(ssid, password);
+                                goForProvisioning(ssid, password, apikey);
                             }
                         }
                     }
@@ -283,13 +286,14 @@ public class WiFiScanActivity extends AppCompatActivity {
         alertDialog.show();
     }
 
-    private void goForProvisioning(String ssid, String password) {
+    private void goForProvisioning(String ssid, String password, String apikey) {
 
         finish();
         Intent provisionIntent = new Intent(getApplicationContext(), ProvisionActivity.class);
         provisionIntent.putExtras(getIntent());
         provisionIntent.putExtra(AppConstants.KEY_WIFI_SSID, ssid);
         provisionIntent.putExtra(AppConstants.KEY_WIFI_PASSWORD, password);
+        provisionIntent.putExtra(AppConstants.KEY_OPENWEATHER_API_KEY, apikey);
         startActivity(provisionIntent);
     }
 

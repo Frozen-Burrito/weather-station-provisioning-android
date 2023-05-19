@@ -13,6 +13,10 @@
     <string name="title_activity_settings">Settings</string>
     <string name="title_activity_add_device">Add Device</string>
 
+    <!-- Image content descriptions -->
+    <string name="main_background_content_desc">Home screen background image</string>
+    <string name="provision_new_device_content_desc">Provision new device</string>
+
     <!-- Button Text -->
     <string name="btn_ok">OK</string>
     <string name="btn_cancel">Cancel</string>
@@ -36,6 +40,7 @@
     <string name="hint_ssid">Network Name</string>
     <string name="hint_value">Enter Value</string>
     <string name="hint_password">Password</string>
+    <string name="hint_apikey">OpenWeather API key</string>
 
     <!-- Instruction Strings -->
     <string name="pop_instruction">Enter your proof of possession PIN for</string>
@@ -47,6 +52,8 @@
     <string name="prov_step_1">Sending Wi-Fi credentials</string>
     <string name="prov_step_2">Applying Wi-Fi connection</string>
     <string name="prov_step_3">Checking provisioning status</string>
+    <string name="prov_step_4">Sending device configuration</string>
+    <string name="error_prov_step_4">Failed to send device configuration</string>
     <string name="error_session_creation">Failed to create session</string>
     <string name="error_prov_step_1">Failed to send Wi-Fi credentials</string>
     <string name="error_prov_step_2">Failed to apply Wi-Fi credentials</string>
@@ -72,10 +79,12 @@
     <string name="enable_bluetooth_action">Enable</string>
     <string name="enabled_bluetooth_action">Provision Network</string>
 
+    <string name="bt_permission_granted_msg">Bluetooth is turned ON, you can provision device now.</string>
+
     <!-- Strings used for Progress -->
-    <string name="progress_scanning">Scanning Devices...</string>
+    <string name="progress_scanning">Scanning Devices…</string>
     <string name="progress_get_status">Getting Status</string>
-    <string name="progress_loading">Loading...</string>
+    <string name="progress_loading">Loading…</string>
 
     <!--Error Messages-->
     <string name="error_title">Error!</string>
@@ -110,7 +119,7 @@
     <string name="connect_your_device">Connect to your device</string>
 
     <string name="dialog_msg_gps">Location services are disabled. Please enable them to continue</string>
-    <string name="dialog_msg_device_selection">Select Device Type</string>
+    <string name="dialog_msg_device_selection">Select provisioning transport</string>
     <string name="looking_for_qr_code">Looking for QR Code</string>
     <string name="position_camera_for_qr_code">Please position the camera to point at the QR Code.</string>
     <string name="dialog_title_network_info">Enter Network Information</string>
