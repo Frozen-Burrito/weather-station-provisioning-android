@@ -71,10 +71,10 @@ public class SettingsActivity extends AppCompatActivity {
             setPreferencesFromResource(R.xml.preferences, rootKey);
 
             SharedPreferences sharedPreferences = prefMgr.getSharedPreferences();
-            securityPref = prefMgr.findPreference(AppConstants.PREFERENCES_SECURITY_TYPE);
+            securityPref = prefMgr.findPreference(AppConstants.PREFERENCES_SECURITY_TYPE_KEY);
             userNamePref = prefMgr.findPreference(AppConstants.KEY_USER_NAME);
 
-            boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE, true);
+            boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE_KEY, true);
             if (isSecure) {
                 securityPref.setSummary(R.string.summary_secured);
                 userNamePref.setVisible(true);

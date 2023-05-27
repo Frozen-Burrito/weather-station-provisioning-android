@@ -14,7 +14,6 @@
 
 package com.espressif.ui.activities;
 
-import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
@@ -29,7 +28,11 @@ import androidx.core.widget.ContentLoadingProgressBar;
 
 import com.espressif.AppConstants;
 import com.espressif.provisioning.DeviceConnectionEvent;
+import com.espressif.provisioning.ESPDevice;
 import com.espressif.provisioning.listeners.ResponseListener;
+import com.espressif.ui.models.DeviceConfiguration;
+import com.espressif.ui.models.ProvisioningStep;
+import com.espressif.ui.models.WiFiCredentials;
 import com.espressif.wifi_provisioning.R;
 import com.espressif.provisioning.ESPConstants;
 import com.espressif.provisioning.ESPProvisionManager;
@@ -38,25 +41,32 @@ import com.espressif.provisioning.listeners.ProvisionListener;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 import org.greenrobot.eventbus.ThreadMode;
+import org.json.JSONException;
+import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 public class ProvisionActivity extends AppCompatActivity {
 
     private static final String TAG = ProvisionActivity.class.getSimpleName();
 
-    private TextView tvTitle, tvBack, tvCancel;
-    private ImageView tick1, tick2, tick3, tick4;
-    private ContentLoadingProgressBar progress1, progress2, progress3, progress4;
-    private TextView tvErrAtStep1, tvErrAtStep2, tvErrAtStep3, tvProvError, tvErrAtStep4;
+    // Views
+    final List<ImageView> stepImages = new ArrayList<>();
+    final List<ContentLoadingProgressBar> progressIndicators = new ArrayList<>();
+    final List<TextView> stepErrorTexts = new ArrayList<>();
 
-    private CardView btnOk;
-    private TextView txtOkBtn;
+    private TextView provisioningErrorText;
+    private CardView continueButton;
 
-    private String ssidValue, passphraseValue = "";
-    private String openWeatherApiKey = "";
-    private ESPProvisionManager provisionManager;
-    private boolean isProvisioningCompleted = false;
+    // Provisioning data
+    private WiFiCredentials wifiCredentials;
+    private DeviceConfiguration deviceConfiguration;
+
+    private ESPProvisionManager provisioningManager;
+    private ProvisioningStep provisioningStep;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -65,21 +75,23 @@ public class ProvisionActivity extends AppCompatActivity {
         setContentView(R.layout.activity_provision);
 
         Intent intent = getIntent();
-        ssidValue = intent.getStringExtra(AppConstants.KEY_WIFI_SSID);
-        passphraseValue = intent.getStringExtra(AppConstants.KEY_WIFI_PASSWORD);
-        openWeatherApiKey = intent.getStringExtra(AppConstants.KEY_OPENWEATHER_API_KEY);
-        provisionManager = ESPProvisionManager.getInstance(getApplicationContext());
+        wifiCredentials = intent.getParcelableExtra(AppConstants.KEY_WIFI_CREDENTIALS);
+        deviceConfiguration = intent.getParcelableExtra(AppConstants.KEY_DEVICE_CONFIGURATION);
+
+        provisioningManager = ESPProvisionManager.getInstance(getApplicationContext());
+
         initViews();
+
         EventBus.getDefault().register(this);
 
-        Log.d(TAG, "Selected AP -" + ssidValue);
-        showLoading();
-        provisionConfiguration();
+        Log.d(TAG, "Selected AP -" + wifiCredentials.getSsid());
+        disableContinueButton();
+        sendDeviceConfiguration();
     }
 
     @Override
     public void onBackPressed() {
-        provisionManager.getEspDevice().disconnectDevice();
+        provisioningManager.getEspDevice().disconnectDevice();
         super.onBackPressed();
     }
 
@@ -97,74 +109,117 @@ public class ProvisionActivity extends AppCompatActivity {
         switch (event.getEventType()) {
 
             case ESPConstants.EVENT_DEVICE_DISCONNECTED:
-                if (!isFinishing() && !isProvisioningCompleted) {
+                if (!isFinishing() && ProvisioningStep.COMPLETE != provisioningStep) {
                     showAlertForDeviceDisconnected();
                 }
                 break;
         }
     }
 
-    private View.OnClickListener okBtnClickListener = new View.OnClickListener() {
+    private final View.OnClickListener okBtnClickListener = new View.OnClickListener() {
 
         @Override
         public void onClick(View v) {
-            provisionManager.getEspDevice().disconnectDevice();
+            provisioningManager.getEspDevice().disconnectDevice();
             finish();
+            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+            startActivity(intent);
         }
     };
 
     private void initViews() {
+        TextView titleText = findViewById(R.id.main_toolbar_title);
+        titleText.setText(R.string.title_activity_provisioning);
 
-        tvTitle = findViewById(R.id.main_toolbar_title);
-        tvBack = findViewById(R.id.btn_back);
-        tvCancel = findViewById(R.id.btn_cancel);
+        TextView backButtonText = findViewById(R.id.btn_back);
+        backButtonText.setVisibility(View.GONE);
 
-        tick1 = findViewById(R.id.iv_tick_1);
-        tick2 = findViewById(R.id.iv_tick_2);
-        tick3 = findViewById(R.id.iv_tick_3);
-        tick4 = findViewById(R.id.iv_tick_4);
+        TextView cancelButtonText = findViewById(R.id.btn_cancel);
+        cancelButtonText.setVisibility(View.GONE);
 
-        progress1 = findViewById(R.id.prov_progress_1);
-        progress2 = findViewById(R.id.prov_progress_2);
-        progress3 = findViewById(R.id.prov_progress_3);
-        progress4 = findViewById(R.id.prov_progress_4);
+        stepImages.addAll(Arrays.asList(
+                findViewById(R.id.iv_tick_1),
+                findViewById(R.id.iv_tick_2),
+                findViewById(R.id.iv_tick_3),
+                findViewById(R.id.iv_tick_4)
+        ));
 
-        tvErrAtStep1 = findViewById(R.id.tv_prov_error_1);
-        tvErrAtStep2 = findViewById(R.id.tv_prov_error_2);
-        tvErrAtStep3 = findViewById(R.id.tv_prov_error_3);
-        tvErrAtStep4 = findViewById(R.id.tv_prov_error_4);
-        tvProvError = findViewById(R.id.tv_prov_error);
+        progressIndicators.addAll(Arrays.asList(
+                findViewById(R.id.prov_progress_1),
+                findViewById(R.id.prov_progress_2),
+                findViewById(R.id.prov_progress_3),
+                findViewById(R.id.prov_progress_4)
+        ));
 
-        tvTitle.setText(R.string.title_activity_provisioning);
-        tvBack.setVisibility(View.GONE);
-        tvCancel.setVisibility(View.GONE);
+        stepErrorTexts.addAll(Arrays.asList(
+                findViewById(R.id.tv_prov_error_1),
+                findViewById(R.id.tv_prov_error_2),
+                findViewById(R.id.tv_prov_error_3),
+                findViewById(R.id.tv_prov_error_4)
+        ));
 
-        btnOk = findViewById(R.id.btn_ok);
-        txtOkBtn = findViewById(R.id.text_btn);
-        btnOk.findViewById(R.id.iv_arrow).setVisibility(View.GONE);
+        provisioningErrorText = findViewById(R.id.tv_prov_error);
 
-        txtOkBtn.setText(R.string.btn_ok);
-        btnOk.setOnClickListener(okBtnClickListener);
+        continueButton = findViewById(R.id.btn_ok);
+        continueButton.findViewById(R.id.iv_arrow).setVisibility(View.GONE);
+        continueButton.setOnClickListener(okBtnClickListener);
+
+        TextView continueBtnText = findViewById(R.id.text_btn);
+        continueBtnText.setText(R.string.btn_done);
     }
 
-    private void provisionConfiguration() {
-        tick4.setVisibility(View.GONE);
-        progress4.setVisibility(View.VISIBLE);
+    private void sendDeviceConfiguration() {
+        provisioningStep = ProvisioningStep.SENDING_CONFIGURATION;
+        stepImages.get(provisioningStep.ordinal()).setVisibility(View.GONE);
+        progressIndicators.get(provisioningStep.ordinal()).setVisibility(View.VISIBLE);
 
-        provisionManager.getEspDevice().sendDataToCustomEndPoint(
+        final JSONObject deviceConfigJson = new JSONObject();
+        try {
+            deviceConfigJson.put("apiKey", deviceConfiguration.getOpenWeatherApiKey());
+
+
+            deviceConfigJson.put("lat", deviceConfiguration.getLatitude());
+            deviceConfigJson.put("lon", deviceConfiguration.getLongitude());
+            deviceConfigJson.put("zipcode", deviceConfiguration.getZipCode());
+            deviceConfigJson.put("country", deviceConfiguration.getCountryCode());
+
+            if (!DeviceConfiguration.DEFAULT_LANGUAGE_CODE.equals(deviceConfiguration.getLanguageCode())) {
+                deviceConfigJson.put("lang", deviceConfiguration.getLanguageCode());
+            }
+
+            if (DeviceConfiguration.DEFAULT_UNIT_SYSTEM != deviceConfiguration.getUnitSystem()) {
+                deviceConfigJson.put("units", deviceConfiguration.getUnitSystem().ordinal());
+            }
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        Log.i(TAG, "Configuration in JSON format: " + deviceConfigJson);
+
+        provisioningManager.getEspDevice().sendDataToCustomEndPoint(
                 AppConstants.CUSTOM_CONFIG_ENDPOINT,
-                openWeatherApiKey.getBytes(StandardCharsets.UTF_8),
+                deviceConfigJson.toString().getBytes(StandardCharsets.UTF_8),
                 new ResponseListener() {
 
                     @Override
                     public void onSuccess(byte[] returnData) {
                         Log.e(TAG, "Configuration provisioning success, response: " + new String(returnData, StandardCharsets.UTF_8));
-                        tick4.setImageResource(R.drawable.ic_checkbox_on);
-                        tick4.setVisibility(View.VISIBLE);
-                        progress4.setVisibility(View.GONE);
-                        tick1.setVisibility(View.GONE);
-                        progress1.setVisibility(View.VISIBLE);
-                        doProvisioning();
+                        provisioningStep = ProvisioningStep.SENDING_WIFI_CREDENTIALS;
+
+                        runOnUiThread(() -> {
+                            final int currentStepIndex = provisioningStep.ordinal();
+                            final int previousStepIndex = currentStepIndex - 1;
+
+                            stepImages.get(previousStepIndex).setImageResource(R.drawable.ic_checkbox_on);
+                            stepImages.get(previousStepIndex).setVisibility(View.VISIBLE);
+                            progressIndicators.get(previousStepIndex).setVisibility(View.GONE);
+
+                            progressIndicators.get(currentStepIndex).setVisibility(View.VISIBLE);
+                            stepImages.get(currentStepIndex).setVisibility(View.GONE);
+                        });
+
+                        sendWifiCredentials();
                     }
 
                     @Override
@@ -172,189 +227,179 @@ public class ProvisionActivity extends AppCompatActivity {
 
                         Log.w(TAG, "Configuration provisioning failure, exception" + e.getMessage());
 
-                        runOnUiThread(new Runnable() {
-
-                            @Override
-                            public void run() {
-                                tick4.setImageResource(R.drawable.ic_error);
-                                tick4.setVisibility(View.VISIBLE);
-                                progress4.setVisibility(View.GONE);
-                                tvErrAtStep4.setVisibility(View.VISIBLE);
-                                tvErrAtStep4.setText(R.string.error_prov_step_4);
-                                tvProvError.setVisibility(View.VISIBLE);
-                                hideLoading();
-                            }
+                        runOnUiThread(() -> {
+                            final int currentStepIndex = provisioningStep.ordinal();
+                            stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                            stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                            progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                            stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                            stepErrorTexts.get(currentStepIndex).setText(R.string.error_prov_step_4);
+                            provisioningErrorText.setVisibility(View.VISIBLE);
+                            enableContinueButton();
                         });
                     }
                 }
         );
     }
 
-    private void doProvisioning() {
+//    private void updateStepIndicatorViews(String errorMessage) {
+//        final int currentStepIndex = provisioningStep.ordinal();
+//
+//        stepImages.get(currentStepIndex).setVisibility(View.GONE);
+//        progressIndicators.get()
+//    }
 
-        provisionManager.getEspDevice().provision(ssidValue, passphraseValue, new ProvisionListener() {
+    private void sendWifiCredentials() {
+
+        ESPDevice device = provisioningManager.getEspDevice();
+        Log.e(TAG, "Provisioning wifi credentials");
+        device.provision(wifiCredentials.getSsid(), wifiCredentials.getPassword(), new ProvisionListener() {
 
             @Override
             public void createSessionFailed(Exception e) {
 
-                runOnUiThread(new Runnable() {
+                runOnUiThread(() -> {
+                    final int currentStepIndex = provisioningStep.ordinal();
 
-                    @Override
-                    public void run() {
-                        tick1.setImageResource(R.drawable.ic_error);
-                        tick1.setVisibility(View.VISIBLE);
-                        progress1.setVisibility(View.GONE);
-                        tvErrAtStep1.setVisibility(View.VISIBLE);
-                        tvErrAtStep1.setText(R.string.error_session_creation);
-                        tvProvError.setVisibility(View.VISIBLE);
-                        hideLoading();
-                    }
+                    stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                    stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                    stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    stepErrorTexts.get(currentStepIndex).setText(R.string.error_session_creation);
+                    provisioningErrorText.setVisibility(View.VISIBLE);
+                    enableContinueButton();
                 });
             }
 
             @Override
             public void wifiConfigSent() {
 
-                runOnUiThread(new Runnable() {
+                runOnUiThread(() -> {
+                    provisioningStep = ProvisioningStep.ATTEMPTING_CONNECTION;
+                    final int currentStepIndex = provisioningStep.ordinal();
 
-                    @Override
-                    public void run() {
-                        tick1.setImageResource(R.drawable.ic_checkbox_on);
-                        tick1.setVisibility(View.VISIBLE);
-                        progress1.setVisibility(View.GONE);
-                        tick2.setVisibility(View.GONE);
-                        progress2.setVisibility(View.VISIBLE);
-                    }
+                    final int previousStepIndex = currentStepIndex - 1;
+                    stepImages.get(previousStepIndex).setImageResource(R.drawable.ic_checkbox_on);
+                    stepImages.get(previousStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(previousStepIndex).setVisibility(View.GONE);
+
+                    stepImages.get(currentStepIndex).setVisibility(View.GONE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.VISIBLE);
                 });
             }
 
             @Override
             public void wifiConfigFailed(Exception e) {
 
-                runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        tick1.setImageResource(R.drawable.ic_error);
-                        tick1.setVisibility(View.VISIBLE);
-                        progress1.setVisibility(View.GONE);
-                        tvErrAtStep1.setVisibility(View.VISIBLE);
-                        tvErrAtStep1.setText(R.string.error_prov_step_1);
-                        tvProvError.setVisibility(View.VISIBLE);
-                        hideLoading();
-                    }
+                runOnUiThread(() -> {
+                    final int currentStepIndex = provisioningStep.ordinal();
+                    stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                    stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                    stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    stepErrorTexts.get(currentStepIndex).setText(R.string.error_prov_step_1);
+                    provisioningErrorText.setVisibility(View.VISIBLE);
+                    enableContinueButton();
                 });
             }
 
             @Override
             public void wifiConfigApplied() {
 
-                runOnUiThread(new Runnable() {
+                runOnUiThread(() -> {
+                    provisioningStep = ProvisioningStep.VERIFYING_STATUS;
+                    final int currentStepIndex = provisioningStep.ordinal();
 
-                    @Override
-                    public void run() {
-                        tick2.setImageResource(R.drawable.ic_checkbox_on);
-                        tick2.setVisibility(View.VISIBLE);
-                        progress2.setVisibility(View.GONE);
-                        tick3.setVisibility(View.GONE);
-                        progress3.setVisibility(View.VISIBLE);
-                    }
+                    final int previousStepIndex = currentStepIndex - 1;
+                    stepImages.get(previousStepIndex).setImageResource(R.drawable.ic_checkbox_on);
+                    stepImages.get(previousStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(previousStepIndex).setVisibility(View.GONE);
+
+                    stepImages.get(currentStepIndex).setVisibility(View.GONE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.VISIBLE);
                 });
             }
 
             @Override
             public void wifiConfigApplyFailed(Exception e) {
 
-                runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        tick2.setImageResource(R.drawable.ic_error);
-                        tick2.setVisibility(View.VISIBLE);
-                        progress2.setVisibility(View.GONE);
-                        tvErrAtStep2.setVisibility(View.VISIBLE);
-                        tvErrAtStep2.setText(R.string.error_prov_step_2);
-                        tvProvError.setVisibility(View.VISIBLE);
-                        hideLoading();
-                    }
+                runOnUiThread(() -> {
+                    final int currentStepIndex = provisioningStep.ordinal();
+                    stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                    stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                    stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    stepErrorTexts.get(currentStepIndex).setText(R.string.error_prov_step_2);
+                    provisioningErrorText.setVisibility(View.VISIBLE);
+                    enableContinueButton();
                 });
             }
 
             @Override
             public void provisioningFailedFromDevice(final ESPConstants.ProvisionFailureReason failureReason) {
 
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-
-                        switch (failureReason) {
-                            case AUTH_FAILED:
-                                tvErrAtStep3.setText(R.string.error_authentication_failed);
-                                break;
-                            case NETWORK_NOT_FOUND:
-                                tvErrAtStep3.setText(R.string.error_network_not_found);
-                                break;
-                            case DEVICE_DISCONNECTED:
-                            case UNKNOWN:
-                                tvErrAtStep3.setText(R.string.error_prov_step_3);
-                                break;
-                        }
-                        tick3.setImageResource(R.drawable.ic_error);
-                        tick3.setVisibility(View.VISIBLE);
-                        progress3.setVisibility(View.GONE);
-                        tvErrAtStep3.setVisibility(View.VISIBLE);
-                        tvProvError.setVisibility(View.VISIBLE);
-                        hideLoading();
+                runOnUiThread(() -> {
+                    final int currentStepIndex = provisioningStep.ordinal();
+                    switch (failureReason) {
+                        case AUTH_FAILED:
+                            stepErrorTexts.get(currentStepIndex).setText(R.string.error_authentication_failed);
+                            break;
+                        case NETWORK_NOT_FOUND:
+                            stepErrorTexts.get(currentStepIndex).setText(R.string.error_network_not_found);
+                            break;
+                        case DEVICE_DISCONNECTED:
+                        case UNKNOWN:
+                            stepErrorTexts.get(currentStepIndex).setText(R.string.error_prov_step_3);
+                            break;
                     }
+
+                    stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                    stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                    stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    provisioningErrorText.setVisibility(View.VISIBLE);
+                    enableContinueButton();
                 });
             }
 
             @Override
             public void deviceProvisioningSuccess() {
 
-                runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        isProvisioningCompleted = true;
-                        tick3.setImageResource(R.drawable.ic_checkbox_on);
-                        tick3.setVisibility(View.VISIBLE);
-                        progress3.setVisibility(View.GONE);
-                        hideLoading();
-                    }
+                runOnUiThread(() -> {
+                    provisioningStep = ProvisioningStep.COMPLETE;
+                    final int previousStepIndex = provisioningStep.ordinal() - 1;
+                    stepImages.get(previousStepIndex).setImageResource(R.drawable.ic_checkbox_on);
+                    stepImages.get(previousStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(previousStepIndex).setVisibility(View.GONE);
+                    enableContinueButton();
                 });
             }
 
             @Override
             public void onProvisioningFailed(Exception e) {
 
-                runOnUiThread(new Runnable() {
-
-                    @Override
-                    public void run() {
-                        tick3.setImageResource(R.drawable.ic_error);
-                        tick3.setVisibility(View.VISIBLE);
-                        progress3.setVisibility(View.GONE);
-                        tvErrAtStep3.setVisibility(View.VISIBLE);
-                        tvErrAtStep3.setText(R.string.error_prov_step_3);
-                        tvProvError.setVisibility(View.VISIBLE);
-                        hideLoading();
-                    }
+                runOnUiThread(() -> {
+                    final int currentStepIndex = provisioningStep.ordinal();
+                    stepImages.get(currentStepIndex).setImageResource(R.drawable.ic_error);
+                    stepImages.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    progressIndicators.get(currentStepIndex).setVisibility(View.GONE);
+                    stepErrorTexts.get(currentStepIndex).setVisibility(View.VISIBLE);
+                    stepErrorTexts.get(currentStepIndex).setText(R.string.error_prov_step_3);
+                    provisioningErrorText.setVisibility(View.VISIBLE);
+                    enableContinueButton();
                 });
             }
         });
     }
 
-    private void showLoading() {
-
-        btnOk.setEnabled(false);
-        btnOk.setAlpha(0.5f);
+    private void disableContinueButton() {
+        continueButton.setEnabled(false);
+        continueButton.setAlpha(0.5f);
     }
 
-    public void hideLoading() {
-
-        btnOk.setEnabled(true);
-        btnOk.setAlpha(1f);
+    public void enableContinueButton() {
+        continueButton.setEnabled(true);
+        continueButton.setAlpha(1f);
     }
 
     private void showAlertForDeviceDisconnected() {
@@ -365,13 +410,11 @@ public class ProvisionActivity extends AppCompatActivity {
         builder.setMessage(R.string.dialog_msg_ble_device_disconnection);
 
         // Set up the buttons
-        builder.setPositiveButton(R.string.btn_ok, new DialogInterface.OnClickListener() {
-
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-                finish();
-            }
+        builder.setPositiveButton(R.string.btn_ok, (dialog, which) -> {
+            dialog.dismiss();
+            finish();
+            Intent intent = new Intent(getApplicationContext(), MainActivity.class);
+            startActivity(intent);
         });
 
         builder.show();

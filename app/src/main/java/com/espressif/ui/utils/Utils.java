@@ -20,9 +20,14 @@ import android.content.DialogInterface;
 import androidx.appcompat.app.AlertDialog;
 
 import com.espressif.provisioning.ESPProvisionManager;
+import com.espressif.ui.models.DeviceTransportType;
 import com.espressif.wifi_provisioning.R;
 
 public class Utils {
+
+    public static boolean doesDeviceSupportBleTransport(DeviceTransportType transport) {
+        return (DeviceTransportType.BLE == transport || DeviceTransportType.BOTH == transport);
+    }
 
     public static void displayDeviceConnectionError(Activity aContext, String msg) {
 

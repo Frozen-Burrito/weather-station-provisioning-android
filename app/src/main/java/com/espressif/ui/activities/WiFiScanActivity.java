@@ -18,11 +18,9 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
-import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
@@ -42,6 +40,7 @@ import com.espressif.provisioning.ESPProvisionManager;
 import com.espressif.provisioning.WiFiAccessPoint;
 import com.espressif.provisioning.listeners.WiFiScanListener;
 import com.espressif.ui.adapters.WiFiListAdapter;
+import com.espressif.ui.models.WiFiCredentials;
 import com.espressif.wifi_provisioning.R;
 import com.google.android.material.textfield.TextInputLayout;
 
@@ -91,30 +90,24 @@ public class WiFiScanActivity extends AppCompatActivity {
 
         // Assign adapter to ListView
         wifiListView.setAdapter(adapter);
-        wifiListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+        wifiListView.setOnItemClickListener((adapterView, view, pos, l) -> {
 
-            @Override
-            public void onItemClick(AdapterView<?> adapterView, View view, int pos, long l) {
+            final WiFiAccessPoint wifiAccessPoint = wifiAPList.get(pos);
 
-                Log.d(TAG, "Device to be connected -" + wifiAPList.get(pos));
-                String ssid = wifiAPList.get(pos).getWifiName();
+            Log.d(TAG, "Device to be connected - " + wifiAccessPoint);
+            final WiFiCredentials credentials = new WiFiCredentials(
+                    wifiAccessPoint.getWifiName(),
+                    ""
+            );
 
-                if (ssid.equals(getString(R.string.join_other_network))) {
-                    askForNetwork(wifiAPList.get(pos).getWifiName(), wifiAPList.get(pos).getSecurity());
-                } else if (wifiAPList.get(pos).getSecurity() == ESPConstants.WIFI_OPEN) {
-                    //TODO: find a way to specify the API key.
-                    goForProvisioning(wifiAPList.get(pos).getWifiName(), "", "");
-                } else {
-                    askForNetwork(wifiAPList.get(pos).getWifiName(), wifiAPList.get(pos).getSecurity());
-                }
+            if (ESPConstants.WIFI_OPEN == wifiAccessPoint.getSecurity()) {
+                navigateToDeviceConfiguration(credentials);
+            } else {
+                askForNetwork(credentials.getSsid(), wifiAccessPoint.getSecurity());
             }
         });
 
-        wifiListView.addOnLayoutChangeListener(new View.OnLayoutChangeListener() {
-
-            @Override
-            public void onLayoutChange(View v, int left, int top, int right, int bottom, int oldLeft, int oldTop, int oldRight, int oldBottom) {
-            }
+        wifiListView.addOnLayoutChangeListener((v, left, top, right, bottom, oldLeft, oldTop, oldRight, oldBottom) -> {
         });
 
         EventBus.getDefault().register(this);
@@ -150,16 +143,10 @@ public class WiFiScanActivity extends AppCompatActivity {
 
     private void startWifiScan() {
 
-        Log.d(TAG, "Start Wi-Fi Scan");
+        Log.d(TAG, "Started Wi-Fi Scan");
         wifiAPList.clear();
 
-        runOnUiThread(new Runnable() {
-
-            @Override
-            public void run() {
-                updateProgressAndScanBtn(true);
-            }
-        });
+        runOnUiThread(() -> updateProgressAndScanBtn(true));
 
         handler.postDelayed(stopScanningTask, 15000);
 
@@ -168,34 +155,25 @@ public class WiFiScanActivity extends AppCompatActivity {
             @Override
             public void onWifiListReceived(final ArrayList<WiFiAccessPoint> wifiList) {
 
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        wifiAPList.addAll(wifiList);
-                        completeWifiList();
-                    }
+                runOnUiThread(() -> {
+                    wifiAPList.addAll(wifiList);
+                    completeWifiList();
                 });
             }
 
             @Override
             public void onWiFiScanFailed(Exception e) {
-
-                // TODO
-                Log.e(TAG, "onWiFiScanFailed");
+                Log.e(TAG, "WiFi scan failed: " + e.getMessage());
                 e.printStackTrace();
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        updateProgressAndScanBtn(false);
-                        Toast.makeText(WiFiScanActivity.this, "Failed to get Wi-Fi scan list", Toast.LENGTH_LONG).show();
-                    }
+                runOnUiThread(() -> {
+                    updateProgressAndScanBtn(false);
+                    Toast.makeText(WiFiScanActivity.this, "Failed to get Wi-Fi scan list", Toast.LENGTH_LONG).show();
                 });
             }
         });
     }
 
     private void completeWifiList() {
-
         // Add "Join network" Option as a list item
         WiFiAccessPoint wifiAp = new WiFiAccessPoint();
         wifiAp.setWifiName(getString(R.string.join_other_network));
@@ -211,109 +189,77 @@ public class WiFiScanActivity extends AppCompatActivity {
         final View dialogView = inflater.inflate(R.layout.dialog_wifi_network, null);
         final EditText etSsid = dialogView.findViewById(R.id.et_ssid);
         final EditText etPassword = dialogView.findViewById(R.id.et_password);
-        final EditText etOpenWeatherApiKey = dialogView.findViewById(R.id.et_apikey);
 
-        String title = getString(R.string.join_other_network);
-        if (!ssid.equals(title)) {
-            title = ssid;
+        String dialogTitle = getString(R.string.join_other_network);
+        if (!ssid.equals(dialogTitle)) {
+            dialogTitle = ssid;
             etSsid.setVisibility(View.GONE);
         }
 
         final AlertDialog alertDialog = new AlertDialog.Builder(this)
                 .setView(dialogView)
-                .setTitle(title)
+                .setTitle(dialogTitle)
                 .setPositiveButton(R.string.btn_provision, null)
                 .setNegativeButton(R.string.btn_cancel, null)
                 .create();
 
-        alertDialog.setOnShowListener(new DialogInterface.OnShowListener() {
-            @Override
-            public void onShow(DialogInterface dialog) {
+        alertDialog.setOnShowListener(dialog -> {
 
-                Button buttonPositive = ((AlertDialog) dialog).getButton(DialogInterface.BUTTON_POSITIVE);
-                buttonPositive.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        String password = etPassword.getText().toString();
-                        String apikey = etOpenWeatherApiKey.getText().toString();
+            Button buttonPositive = ((AlertDialog) dialog).getButton(DialogInterface.BUTTON_POSITIVE);
+            buttonPositive.setOnClickListener(view -> {
 
-                        if (ssid.equals(getString(R.string.join_other_network))) {
+                WiFiCredentials credentials = new WiFiCredentials(
+                        ssid,
+                        etPassword.getText().toString()
+                );
 
-                            String networkName = etSsid.getText().toString();
+                final boolean manualSsidInput = credentials.getSsid().equals(getString(R.string.join_other_network));
 
-                            if (TextUtils.isEmpty(networkName)) {
-                                etSsid.setError(getString(R.string.error_ssid_empty));
+                if (manualSsidInput) {
+                    credentials.setSsid(etSsid.getText().toString());
+                }
 
-                            } else {
-                                dialog.dismiss();
-                                goForProvisioning(networkName, password, apikey);
-                            }
+                boolean wifiCredentialsHaveErrors = false;
 
-                        } else {
+                if (credentials.ssidIsEmpty()) {
+                    etSsid.setError(getString(R.string.error_ssid_empty));
+                    wifiCredentialsHaveErrors = true;
+                }
 
-                            if (TextUtils.isEmpty(password)) {
-
-                                if (authMode != ESPConstants.WIFI_OPEN) {
-                                    TextInputLayout passwordLayout = dialogView.findViewById(R.id.layout_password);
-                                    passwordLayout.setError(getString(R.string.error_password_empty));
-
-                                } else {
-                                    dialog.dismiss();
-                                    goForProvisioning(ssid, password, apikey);
-                                }
-
-                            } else {
-
-                                if (authMode == ESPConstants.WIFI_OPEN) {
-                                    password = "";
-                                }
-                                dialog.dismiss();
-                                goForProvisioning(ssid, password, apikey);
-                            }
-                        }
+                if (authMode != ESPConstants.WIFI_OPEN) {
+                    if (credentials.passwordIsEmpty()) {
+                        TextInputLayout passwordLayout = dialogView.findViewById(R.id.layout_password);
+                        passwordLayout.setError(getString(R.string.error_password_empty));
+                        wifiCredentialsHaveErrors = true;
                     }
-                });
-                Button buttonNegative = ((AlertDialog) dialog).getButton(DialogInterface.BUTTON_NEGATIVE);
-                buttonNegative.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View view) {
-                        dialog.dismiss();
-                    }
-                });
-            }
+                } else {
+                    credentials.setPassword("");
+                }
+
+                if (!wifiCredentialsHaveErrors) {
+                    dialog.dismiss();
+                    navigateToDeviceConfiguration(credentials);
+                }
+            });
+
+            Button buttonNegative = ((AlertDialog) dialog).getButton(DialogInterface.BUTTON_NEGATIVE);
+            buttonNegative.setOnClickListener(view -> dialog.dismiss());
         });
 
         alertDialog.show();
     }
 
-    private void goForProvisioning(String ssid, String password, String apikey) {
-
+    private void navigateToDeviceConfiguration(WiFiCredentials wifiCredentials) {
         finish();
-        Intent provisionIntent = new Intent(getApplicationContext(), ProvisionActivity.class);
-        provisionIntent.putExtras(getIntent());
-        provisionIntent.putExtra(AppConstants.KEY_WIFI_SSID, ssid);
-        provisionIntent.putExtra(AppConstants.KEY_WIFI_PASSWORD, password);
-        provisionIntent.putExtra(AppConstants.KEY_OPENWEATHER_API_KEY, apikey);
-        startActivity(provisionIntent);
+        Intent intent = new Intent(getApplicationContext(), DeviceConfigurationActivity.class);
+        intent.putExtras(getIntent());
+        intent.putExtra(AppConstants.KEY_WIFI_CREDENTIALS, wifiCredentials);
+        startActivity(intent);
     }
 
-    private View.OnClickListener refreshClickListener = new View.OnClickListener() {
+    private final View.OnClickListener refreshClickListener = v -> startWifiScan();
 
-        @Override
-        public void onClick(View v) {
-
-            startWifiScan();
-        }
-    };
-
-    private Runnable stopScanningTask = new Runnable() {
-
-        @Override
-        public void run() {
-
-            updateProgressAndScanBtn(false);
-        }
-    };
+    private final Runnable stopScanningTask = () -> updateProgressAndScanBtn(false);
 
     /**
      * This method will update UI (Scan button enable / disable and progressbar visibility)
@@ -342,14 +288,9 @@ public class WiFiScanActivity extends AppCompatActivity {
         builder.setTitle(R.string.error_title);
         builder.setMessage(R.string.dialog_msg_ble_device_disconnection);
 
-        // Set up the buttons
-        builder.setPositiveButton(R.string.btn_ok, new DialogInterface.OnClickListener() {
-
-            @Override
-            public void onClick(DialogInterface dialog, int which) {
-                dialog.dismiss();
-                finish();
-            }
+        builder.setPositiveButton(R.string.btn_ok, (dialog, which) -> {
+            dialog.dismiss();
+            finish();
         });
 
         builder.show();

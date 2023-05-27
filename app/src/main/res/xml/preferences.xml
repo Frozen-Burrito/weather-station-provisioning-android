@@ -6,7 +6,7 @@
         app:title="@string/device_settings">
 
         <ListPreference
-            app:defaultValue="both"
+            app:defaultValue="0"
             app:entries="@array/device_entries"
             app:entryValues="@array/device_values"
             app:iconSpaceReserved="false"

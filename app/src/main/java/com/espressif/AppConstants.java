@@ -25,9 +25,11 @@ public class AppConstants {
     public static final String KEY_STATUS_MSG = "status_msg";
 
     public static final String PREFERENCES_DEVICE_TRANSPORT_KEY = "device_types";
-    public static final String PREFERENCES_SECURITY_TYPE = "security_type";
+    public static final String PREFERENCES_SECURITY_TYPE_KEY = "security_type";
     public static final String KEY_USER_NAME = "sec2_username";
     // Configuration option keys used to pass data in intents.
+    public static final String KEY_WIFI_CREDENTIALS = "wifi_creds";
+    public static final String KEY_DEVICE_CONFIGURATION = "dev_config";
     public static final String KEY_WIFI_SSID = "ssid";
     public static final String KEY_WIFI_PASSWORD = "password";
     public static final String KEY_OPENWEATHER_API_KEY = "openweather_api_key";

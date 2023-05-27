@@ -108,7 +108,7 @@ public class ProvisionLanding extends ManualProvBaseActivity {
                 progressBar.setVisibility(View.GONE);
                 arrowImage.setVisibility(View.VISIBLE);
                 setSecurityTypeFromVersionInfo();
-                boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE, true);
+                boolean isSecure = sharedPreferences.getBoolean(AppConstants.PREFERENCES_SECURITY_TYPE_KEY, true);
                 if (isSecure) {
                     if (securityType == AppConstants.SEC_TYPE_0) {
                         Utils.displayDeviceConnectionError(this, getString(R.string.error_security_mismatch));

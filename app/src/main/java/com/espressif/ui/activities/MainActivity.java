@@ -45,10 +45,16 @@ import androidx.appcompat.widget.Toolbar;
 import com.espressif.AppConstants;
 import com.espressif.provisioning.ESPConstants;
 import com.espressif.provisioning.ESPProvisionManager;
+import com.espressif.ui.models.DeviceConfiguration;
 import com.espressif.ui.models.DeviceTransportType;
+import com.espressif.ui.models.UnitSystem;
+import com.espressif.ui.utils.Utils;
 import com.espressif.wifi_provisioning.BuildConfig;
 import com.espressif.wifi_provisioning.R;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+
+import org.json.JSONException;
+import org.json.JSONObject;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -72,11 +78,12 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        provisioningManager = ESPProvisionManager.getInstance(getApplicationContext());
+
         Toolbar toolbar = findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         initViews();
-
-        provisioningManager = ESPProvisionManager.getInstance(getApplicationContext());
 
         sharedPreferences = getSharedPreferences(AppConstants.ESP_PREFERENCES, Context.MODE_PRIVATE);
     }
@@ -207,7 +214,7 @@ public class MainActivity extends AppCompatActivity {
 
             navigateToQrActivity();
 
-        } else if (doesDeviceSupportBleTransport(deviceTransport)) {
+        } else if (Utils.doesDeviceSupportBleTransport(deviceTransport)) {
             final BluetoothManager bluetoothManager = (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
             BluetoothAdapter bleAdapter = bluetoothManager.getAdapter();
 
@@ -263,12 +270,8 @@ public class MainActivity extends AppCompatActivity {
         return (isGpsEnabled || isNetworkEnabled);
     }
 
-    private boolean doesDeviceSupportBleTransport(DeviceTransportType transport) {
-        return (DeviceTransportType.BLE == transport || DeviceTransportType.BOTH == transport);
-    }
-
     private void navigateToQrActivity() {
-        Intent intent = new Intent(MainActivity.this, AddDeviceActivity.class);
+        Intent intent = new Intent(MainActivity.this, ScanQrActivity.class);
         startActivity(intent);
     }
 
@@ -281,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
             intent = new Intent(MainActivity.this, ProvisionLanding.class);
 
         }
-        intent.putExtra(AppConstants.PREFERENCES_SECURITY_TYPE, securityType.name());
+        intent.putExtra(AppConstants.PREFERENCES_SECURITY_TYPE_KEY, securityType.name());
 
         startActivity(intent);
     }
@@ -297,11 +300,10 @@ public class MainActivity extends AppCompatActivity {
 
     public ESPConstants.SecurityType getProvisioningSecurityFromPrefs() {
         final int securityTypeOrdinal = sharedPreferences.getInt(
-                AppConstants.PREFERENCES_SECURITY_TYPE,
+                AppConstants.PREFERENCES_SECURITY_TYPE_KEY,
                 ESPConstants.SecurityType.SECURITY_0.ordinal()
         );
 
         return ESPConstants.SecurityType.values()[securityTypeOrdinal];
     }
-
 }

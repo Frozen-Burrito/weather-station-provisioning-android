@@ -3,12 +3,28 @@
     <string-array name="device_entries">
         <item>BLE</item>
         <item>SoftAP</item>
-        <item>Both</item>
     </string-array>
 
-    <string-array name="device_values">
-        <item>ble</item>
-        <item>softap</item>
-        <item>both</item>
+    <integer-array name="device_values">
+        <item>0</item>
+        <item>1</item>
+    </integer-array>
+
+    <string-array name="countries">
+        <item>Not specified</item>
+        <item>Mexico</item>
+        <item>United States</item>
+    </string-array>
+
+    <string-array name="languages">
+        <item>English</item>
+        <item>Español</item>
+        <item>Français</item>
+    </string-array>
+
+    <string-array name="unit_systems">
+        <item>Standard</item>
+        <item>Metric</item>
+        <item>Imperial</item>
     </string-array>
 </resources>
